@@ -64,6 +64,7 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 	imageName := r.URL.Query().Get("imageName")
 	imageVersion := r.URL.Query().Get("imageVersion")
 	token := r.URL.Query().Get("token")
+	log.Println(r.URL.Query())
 	if serviceName == "" || imageVersion == "" || imageName == "" || token == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
