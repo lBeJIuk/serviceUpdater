@@ -45,7 +45,6 @@ func main() {
 	if len(credentials) < 1 {
 		panic("Tokens are not defined")
 	}
-	log.Println("cretentials", credentials)
 
 	http.HandleFunc("/service/update", serviceUpdate)
 	log.Println("Start serving on port ", servingPort)
@@ -102,7 +101,7 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 		// imageName = themarkz_back
 		// imageVersion = $APP_NAME
 		contSpec := &service.Spec.TaskTemplate.ContainerSpec
-		imageNameChecker := regexp.MustCompile("^" + imageName)
+		imageNameChecker := regexp.MustCompile("^" + registry + imageName)
 		if !imageNameChecker.MatchString(contSpec.Image) {
 			// try to change image
 			w.WriteHeader(http.StatusBadRequest)
