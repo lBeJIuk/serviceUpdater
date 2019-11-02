@@ -66,6 +66,7 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	log.Println(r.URL.Query())
 	if serviceName == "" || imageVersion == "" || imageName == "" || token == "" {
+		log.Println("serviceName/imageName/imageVersion/token are empty")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -75,6 +76,7 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 
 	tokens, ok := credentials[serviceName]
 	if !ok {
+		log.Println("no credentials for " + serviceName)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -85,6 +87,7 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !success {
+		log.Println("Wrong token for " + serviceName)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -104,7 +107,7 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 		contSpec := &service.Spec.TaskTemplate.ContainerSpec
 		imageNameChecker := regexp.MustCompile("^" + registry + imageName)
 		if !imageNameChecker.MatchString(contSpec.Image) {
-			// try to change image
+			log.Println("Try to use another image for " + serviceName)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
