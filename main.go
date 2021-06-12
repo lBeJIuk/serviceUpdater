@@ -91,25 +91,17 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	args := filters.NewArgs()
-	args.Add("service.name", serviceName)
+	args.Add("name", serviceName)
 	services, err := cli.ServiceList(context.Background(), types.ServiceListOptions{Filters: args})
 	if err != nil {
 		panic(err)
 	}
 
 	if len(services) != 1 {
-		log.Println("Something goes wrong  service.name")
+		log.Println("Something went wrong")
+		log.Println("Count:", len(services))
 		log.Println("serviceName did not found", serviceName)
 		w.WriteHeader(http.StatusBadRequest)
-
-		args := filters.NewArgs()
-		args.Add("spec.name", serviceName)
-		services, _ = cli.ServiceList(context.Background(), types.ServiceListOptions{Filters: args})
-		if len(services) != 1 {
-			log.Println("Something goes wrong spec.name")
-			log.Println("serviceName did not found", serviceName)
-			w.WriteHeader(http.StatusBadRequest)
-		}
 	}
 
 	for _, service := range services {
