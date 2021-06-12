@@ -3,18 +3,19 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/client"
 	"log"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
+
 	"github.com/docker/docker/api/types"
 )
 
-const defaultServingPort = ":80"
+const defaultServingPort = ":8080"
 const token_identifier = "__UPDATER_TOKEN"
 
 var registry string
@@ -114,10 +115,11 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 
 		newImage := fmt.Sprintf("%s%s:%s", registry, imageName, imageVersion)
 		contSpec.Image = newImage
+		log.Println("Trying to update", service.ID, service.Version)
 		resp, err := cli.ServiceUpdate(context.Background(), service.ID, service.Version, service.Spec, types.ServiceUpdateOptions{})
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(resp)
+		log.Println(resp)
 	}
 }
