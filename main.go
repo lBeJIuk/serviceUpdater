@@ -72,9 +72,6 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	args := filters.NewArgs()
-	args.Add("name", serviceName)
-
 	tokens, ok := credentials[serviceName]
 	if !ok {
 		log.Println("no credentials for " + serviceName)
@@ -93,12 +90,26 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	args := filters.NewArgs()
+	args.Add("service.name", serviceName)
 	services, err := cli.ServiceList(context.Background(), types.ServiceListOptions{Filters: args})
 	if err != nil {
 		panic(err)
 	}
-	if len(services) > 1 {
-		panic("Something goes wrong")
+
+	if len(services) != 1 {
+		log.Println("Something goes wrong  service.name")
+		log.Println("serviceName did not found", serviceName)
+		w.WriteHeader(http.StatusBadRequest)
+
+		args := filters.NewArgs()
+		args.Add("spec.name", serviceName)
+		services, _ = cli.ServiceList(context.Background(), types.ServiceListOptions{Filters: args})
+		if len(services) != 1 {
+			log.Println("Something goes wrong spec.name")
+			log.Println("serviceName did not found", serviceName)
+			w.WriteHeader(http.StatusBadRequest)
+		}
 	}
 
 	for _, service := range services {
