@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -20,6 +22,11 @@ const token_identifier = "__UPDATER_TOKEN"
 
 var registry string
 var credentials map[string][]string
+
+type requestData struct {
+	ServiceName  string `json:"serviceName,omitempty"`
+	ImageVersion string `json:"imageVersion,omitempty"`
+}
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -56,26 +63,43 @@ func main() {
 }
 
 func serviceUpdate(w http.ResponseWriter, r *http.Request) {
-	cli, err := client.NewEnvClient()
-	if err != nil {
-		panic(err)
-	}
-
-	serviceName := r.URL.Query().Get("serviceName")
-	imageName := r.URL.Query().Get("imageName")
-	imageVersion := r.URL.Query().Get("imageVersion")
-	token := r.URL.Query().Get("token")
-	log.Println(r.URL.Query())
-	if serviceName == "" || imageVersion == "" || imageName == "" || token == "" {
-		log.Println("serviceName/imageName/imageVersion/token are empty")
-		w.WriteHeader(http.StatusBadRequest)
+	if r.Method != http.MethodPut {
+		log.Println("Unsupported method")
+		errorResponse(w, "Unsupported method", http.StatusForbidden)
 		return
 	}
 
-	tokens, ok := credentials[serviceName]
+	headerContentType := r.Header.Get("Content-Type")
+	if headerContentType != "application/json" {
+		errorResponse(w, "Content Type is not application/json", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	token := r.Header.Get("_xtoken")
+
+	var request requestData
+	var unmarshalErr *json.UnmarshalTypeError
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(&request)
+	if err != nil {
+		if errors.As(err, &unmarshalErr) {
+			errorResponse(w, "Bad Request. Wrong Type provided for field "+unmarshalErr.Field, http.StatusBadRequest)
+		} else {
+			errorResponse(w, "Bad Request "+err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+
+	if request.ServiceName == "" || request.ImageVersion == "" || token == "" {
+		errorResponse(w, "serviceName/imageVersion/token are empty", http.StatusBadRequest)
+		return
+	}
+
+	tokens, ok := credentials[request.ServiceName]
 	if !ok {
-		log.Println("no credentials for " + serviceName)
-		w.WriteHeader(http.StatusBadRequest)
+		log.Println("no credentials for " + request.ServiceName)
+		errorResponse(w, "no credentials for "+request.ServiceName, http.StatusBadRequest)
 		return
 	}
 	success := false
@@ -85,44 +109,56 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !success {
-		log.Println("Wrong token for " + serviceName)
-		w.WriteHeader(http.StatusBadRequest)
+		log.Println("Wrong token for " + request.ServiceName)
+		errorResponse(w, "Wrong token for "+request.ServiceName, http.StatusBadRequest)
+		return
+	}
+
+	cli, err := client.NewEnvClient()
+	if err != nil {
+		errorResponse(w, "Docker-Cli does not start", http.StatusServiceUnavailable)
 		return
 	}
 
 	args := filters.NewArgs()
-	args.Add("name", serviceName)
+	args.Add("name", request.ServiceName)
 	services, err := cli.ServiceList(context.Background(), types.ServiceListOptions{Filters: args})
 	if err != nil {
-		panic(err)
+		errorResponse(w, "Docker-Cli does not work", http.StatusServiceUnavailable)
+		return
 	}
 
 	if len(services) != 1 {
 		log.Println("Something went wrong")
 		log.Println("Count:", len(services))
-		log.Println("serviceName did not found", serviceName)
-		w.WriteHeader(http.StatusBadRequest)
+		log.Println("serviceName did not found", request.ServiceName)
+		errorResponse(w, "serviceName did not found "+request.ServiceName, http.StatusBadRequest)
+		return
 	}
 
 	for _, service := range services {
 		// registry = docker.pkg.github.com/lbejiuk/private_pkg/
-		// imageName = themarkz_back
-		// imageVersion = $APP_NAME
+		// request.ServiceName = themarkz_back
+		// request.ImageVersion = $APP_NAME
 		contSpec := &service.Spec.TaskTemplate.ContainerSpec
-		imageNameChecker := regexp.MustCompile("^" + registry + imageName)
-		if !imageNameChecker.MatchString(contSpec.Image) {
-			log.Println("Try to use another image for " + serviceName)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
 
-		newImage := fmt.Sprintf("%s%s:%s", registry, imageName, imageVersion)
+		newImage := fmt.Sprintf("%s%s:%s", registry, contSpec.Image, request.ImageVersion)
 		contSpec.Image = newImage
 		log.Println("Trying to update", service.ID, service.Version)
 		resp, err := cli.ServiceUpdate(context.Background(), service.ID, service.Version, service.Spec, types.ServiceUpdateOptions{})
 		if err != nil {
-			panic(err)
+			errorResponse(w, "Docker-Cli does not work", http.StatusServiceUnavailable)
+			return
 		}
 		log.Println(resp)
 	}
+}
+
+func errorResponse(w http.ResponseWriter, message string, httpStatusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(httpStatusCode)
+	resp := make(map[string]string)
+	resp["message"] = message
+	jsonResp, _ := json.Marshal(resp)
+	w.Write(jsonResp)
 }

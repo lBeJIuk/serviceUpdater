@@ -17,5 +17,5 @@ version: "3.7"
 ```
 
 ```shell script
-curl http://myServer:8080/service/update?service_name=web&imageName=nginx&imageVersion=alpine&token=sercret_token_
+curl -X PUT http://myServer:8080/service/update -H "_xtoken: sercret_token_" -H "Content-Type: application/json" -d '{"serviceName": "web", "imageVersion":"alpine"}'
 ```
