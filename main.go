@@ -96,23 +96,23 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, ok := credentials[request.ServiceName]
-	if !ok {
-		log.Println("no credentials for " + request.ServiceName)
-		errorResponse(w, "no credentials for "+request.ServiceName, http.StatusBadRequest)
-		return
-	}
-	success := false
-	for _, t := range tokens {
-		if t == token {
-			success = true
-		}
-	}
-	if !success {
-		log.Println("Wrong token for " + request.ServiceName)
-		errorResponse(w, "Wrong token for "+request.ServiceName, http.StatusBadRequest)
-		return
-	}
+	//tokens, ok := credentials[request.ServiceName]
+	//if !ok {
+	//	log.Println("no credentials for " + request.ServiceName)
+	//	errorResponse(w, "no credentials for "+request.ServiceName, http.StatusBadRequest)
+	//	return
+	//}
+	//success := false
+	//for _, t := range tokens {
+	//	if t == token {
+	//		success = true
+	//	}
+	//}
+	//if !success {
+	//	log.Println("Wrong token for " + request.ServiceName)
+	//	errorResponse(w, "Wrong token for "+request.ServiceName, http.StatusBadRequest)
+	//	return
+	//}
 
 	cli, err := client.NewEnvClient()
 	if err != nil {
@@ -141,8 +141,8 @@ func serviceUpdate(w http.ResponseWriter, r *http.Request) {
 		// request.ServiceName = themarkz_back
 		// request.ImageVersion = $APP_NAME
 		contSpec := &service.Spec.TaskTemplate.ContainerSpec
-
-		newImage := fmt.Sprintf("%s%s:%s", registry, contSpec.Image, request.ImageVersion)
+		imageName :=  strings.Split(contSpec.Image, ":")[0]
+		newImage := fmt.Sprintf("%s%s:%s", registry, imageName, request.ImageVersion)
 		contSpec.Image = newImage
 		log.Println("Trying to update", service.ID, service.Version)
 		resp, err := cli.ServiceUpdate(context.Background(), service.ID, service.Version, service.Spec, types.ServiceUpdateOptions{})
